@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Gallery</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .title {
+      position: absolute;
+      top: 40px;
+      font-size: 3rem;
+      color: white;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      font-weight: bold;
+      letter-spacing: 2px;
+      z-index: 10;
+    }
+
+    .images-container {
+      display: flex;
+      gap: 30px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: nowrap;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .image-item {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: 3px solid transparent;
+    }
+
+    .image-item:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 20px 50px rgba(255, 107, 107, 0.4);
+      border-color: #ff6b6b;
+    }
+
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: all 0.3s ease;
+    }
+
+    .image-item:hover img {
+      transform: scale(1.1);
+    }
+
+    .image-label {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      backdrop-filter: blur(5px);
+    }
+
+    .special-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .description {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ccc;
+      font-size: 1.1rem;
+      text-align: center;
+      max-width: 600px;
+      line-height: 1.6;
+      z-index: 10;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 10;
+    }
+
+    .control-btn {
+      padding: 12px 24px;
+      font-size: 1rem;
+      background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+    }
+
+    .control-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      transform: scale(0.5);
+      transition: transform 0.3s ease;
+    }
+
+    .modal.show .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-image {
+      width: 300px;
+      height: 300px;
+      object-fit: cover;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .modal-title {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    .modal-description {
+      font-size: 1.1rem;
+      color: #666;
+      margin-bottom: 25px;
+      line-height: 1.5;
+    }
+
+    .close-btn {
+      padding: 10px 25px;
+      font-size: 1rem;
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .close-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .intro-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      transition: opacity 1s ease-in-out;
+    }
+
+    .intro-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .intro-content {
+      text-align: center;
+      color: white;
+    }
+
+    .intro-title {
+      font-size: 3.5rem;
+      font-weight: bold;
+      margin-bottom: 30px;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 3px solid #ff6b6b;
+      animation: typing 2s steps(20, end), blink-caret 0.75s step-end infinite;
+    }
+
+    @keyframes typing {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes blink-caret {
+      from, to { border-color: transparent; }
+      50% { border-color: #ff6b6b; }
+    }
+
+
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .image-item.dimmed {
+      opacity: 0.3;
+      transition: opacity 0.5s ease;
+    }
+
+    .image-item.highlighted {
+      animation: brighten 2s ease-in-out infinite;
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+    }
+
+    @keyframes brighten {
+      0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+      }
+      50% { 
+        transform: scale(1.1);
+        box-shadow: 0 0 40px rgba(255, 107, 107, 0.8);
+      }
+    }
+
+    .cursor {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-top: 25px solid #ff6b6b;
+      pointer-events: none;
+      z-index: 100;
+      filter: drop-shadow(0 0 10px rgba(255, 107, 107, 0.8));
+      animation: cursorPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes cursorPulse {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.2); opacity: 0.7; }
+    }
+  </style>
+</head>
+  <!-- Intro Screen -->
+  <div class="intro-screen" id="introScreen">
+    <div class="intro-content">
+      <div class="intro-title">Hadi içeceğini bulalım 🍓</div>
+    </div>
+  </div>
+
+  <body>
+    <div class="container">
+      <div class="title">🍓</div>
+      <div class="cursor"></div>
+    
+    <div class="images-container">
+      <div class="image-item">
+        <img src="c1.jpeg" alt="Image 1">
+      </div>
+      
+      <div class="image-item">
+        <img src="c2.jpeg" alt="Image 2">
+      </div>
+      
+      <div class="image-item">
+        <img src="c3.jpeg" alt="Image 3">
+      </div>
+      
+      <div class="image-item">
+        <img src="c4.jpeg" alt="Image 4">
+      </div>
+      
+      <div class="image-item">
+        <img src="icimino.jpeg" alt="Special Image">
+      </div>
+    </div>
+    
+       
+    <div class="description">
+      Acaba hangisi en sevdiğin?
+    </div>
+    
+    <div class="controls">
+      <button class="control-btn" onclick="shuffleImages()">Başlat</button>
+    </div>
+  </div>
+
+  <!-- Modal for enlarged image view -->
+  <div class="modal" id="imageModal">
+    <div class="modal-content">
+      <img class="modal-image" id="modalImage" src="" alt="Enlarged Image">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-description" id="modalDescription"></div>
+      <button class="close-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDescription = document.getElementById('modalDescription');
+
+    // Auto-start the app after 3 seconds (2s typing + 1s wait)
+    setTimeout(() => {
+      const introScreen = document.getElementById('introScreen');
+      introScreen.classList.add('fade-out');
+      
+      setTimeout(() => {
+        introScreen.style.display = 'none';
+      }, 1000);
+    }, 3000);
+
+    function openModal(imageSrc, title, description) {
+      modalImage.src = imageSrc;
+      modalTitle.textContent = title;
+      modalDescription.textContent = description;
+      modal.classList.add('show');
+    }
+
+    function closeModal() {
+      modal.classList.remove('show');
+    }
+
+    function shuffleImages() {
+      const container = document.querySelector('.images-container');
+      const images = Array.from(container.children);
+      const shuffleBtn = document.querySelector('.control-btn');
+      
+      // Reset any previous effects
+      const imageItems = document.querySelectorAll('.image-item');
+      imageItems.forEach(item => {
+        item.classList.remove('dimmed', 'highlighted');
+      });
+      
+      // Disable button during animation
+      shuffleBtn.disabled = true;
+      shuffleBtn.textContent = 'Bulunuyor...';
+      
+      let shuffleCount = 0;
+      const totalShuffles = 30; // 30 shuffles over 6 seconds = 5 shuffles per second
+      
+      const shuffleInterval = setInterval(() => {
+        // Shuffle the array
+        for (let i = images.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          container.appendChild(images[j]);
+        }
+        
+        shuffleCount++;
+        
+        if (shuffleCount >= totalShuffles) {
+          clearInterval(shuffleInterval);
+          
+          // Always ensure icimino is the result
+          const imageItems = document.querySelectorAll('.image-item');
+          let iciminoElement = null;
+          
+          // Find the icimino element
+          imageItems.forEach(item => {
+            if (item.querySelector('img').src.includes('icimino.jpeg')) {
+              iciminoElement = item;
+            }
+          });
+          
+          // Move icimino to the middle position (index 2)
+          if (iciminoElement) {
+            // Remove icimino from its current position
+            iciminoElement.remove();
+            // Insert it at the middle position
+            const middlePosition = Math.floor(imageItems.length / 2); // This will be 2 for 5 images
+            container.insertBefore(iciminoElement, container.children[middlePosition]);
+          }
+          
+          shuffleBtn.disabled = false;
+          shuffleBtn.textContent = 'Buldum';
+          
+          // Apply effects after shuffling is complete
+          setTimeout(() => {
+            const updatedImageItems = document.querySelectorAll('.image-item');
+            
+            // Find icimino again and highlight it
+            updatedImageItems.forEach((item, index) => {
+              if (item.querySelector('img').src.includes('icimino.jpeg')) {
+                item.classList.add('highlighted');
+              } else {
+                item.classList.add('dimmed');
+              }
+            });
+            
+            // Redirect to goal.html after 4 seconds
+            setTimeout(() => {
+              window.location.href = 'peony.html';
+            }, 4000);
+          }, 100);
+        }
+      }, 200); // 200ms interval = 5 shuffles per second
+    }
+
+
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // Add keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('show')) {
+        closeModal();
+      }
+    });
+
+    // Add hover effects
+    document.querySelectorAll('.image-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.transform = 'translateY(-10px) scale(1.05)';
+      });
+      
+      item.addEventListener('mouseleave', () => {
+        item.style.transform = 'translateY(0) scale(1)';
+      });
+    });
+  </script>
+</body>
+</html> 

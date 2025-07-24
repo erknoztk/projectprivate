@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taraftarlar</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0d133d;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow: hidden;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    .container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      margin: 0 auto;
+      margin-top: 80px;
+    }
+
+    canvas {
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      background: #0d133d;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .title {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 3rem;
+      color: white;
+      text-shadow: none;
+      animation: none;
+      font-weight: bold;
+      letter-spacing: 2px;
+      z-index: 10;
+      background: none;
+    }
+
+    @keyframes titleGlow {
+      0% { text-shadow: 0 3px 15px rgba(0, 0, 0, 0.6); }
+      100% { text-shadow: 0 3px 25px rgba(255, 255, 255, 0.9); }
+    }
+
+    /* Start Screen Styles */
+    .start-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0d133d 0%, #1a1a2e 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 1s ease-in-out;
+    }
+
+    .start-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .start-content {
+      text-align: center;
+      color: white;
+    }
+
+    .start-title {
+      font-size: 3.5rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+      animation: titleGlow 2s ease-in-out infinite alternate;
+    }
+
+    .start-subtitle {
+      font-size: 1.5rem;
+      margin-bottom: 40px;
+      opacity: 0.9;
+      animation: fadeInUp 1s ease-out 0.5s both;
+    }
+
+    .start-button {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+      animation: fadeInUp 1s ease-out 1s both;
+    }
+
+    .start-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 35px rgba(76, 175, 80, 0.6);
+      background: linear-gradient(135deg, #45a049, #4CAF50);
+    }
+
+    .start-button:active {
+      transform: translateY(-1px);
+    }
+
+    .start-icon {
+      font-size: 5rem;
+      margin-bottom: 30px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+  </style>
+</head>
+<body>
+  <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; z-index: 10;"><3</div>
+  
+  <!-- Start Screen -->
+  <div id="startScreen" class="start-screen">
+    <div class="start-content">
+      <div class="start-icon">🎵</div>
+      <div class="start-title">Koro Hazır</div>
+      <div class="start-subtitle">O şarkıyı başlat</div>
+      <button class="start-button" onclick="startAnimation()">BAŞLA</button>
+    </div>
+  </div>
+  
+  <div class="container">
+    <canvas id="fansCanvas" width="800" height="600"></canvas>
+  </div>
+
+  <!-- Button to go to birthday cake, hidden by default -->
+  <button id="goToCakeBtn" style="display:none; position: absolute; left: 50%; top: 80%; transform: translate(-50%, 0); z-index: 2000; padding: 18px 36px; font-size: 1.4rem; border-radius: 40px; background: linear-gradient(135deg, #ffb347, #ffcc80); color: #222; border: none; font-weight: bold; box-shadow: 0 4px 16px rgba(0,0,0,0.2); cursor: pointer;">Pastan seni bekliyor...</button>
+
+  <script>
+    // Redirect to stars.html if the page is refreshed
+    if (performance && performance.navigation && performance.navigation.type === 1) {
+      window.location.href = 'stars.html';
+    }
+
+    const canvas = document.getElementById('fansCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    // Animation variables
+    let time = 0;
+    let selectedFan = 25; // Always the 26th person (index 25)
+    let backgroundDark = false;
+    let darkTransition = 0;
+    let animationStarted = false;
+
+    // Create music notes
+    let musicNotes = [];
+    for (let i = 0; i < 15; i++) {
+      musicNotes.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 50,
+        symbol: Math.random() > 0.5 ? '♪' : '♫',
+        speed: Math.random() * 2 + 1,
+        rotation: 0,
+        opacity: 0.8,
+        active: false // Only activate when background is dark
+      });
+    }
+
+    // Create stars
+    let stars = [];
+    for (let i = 0; i < 30; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 5 + 2,
+        speed: Math.random() * 0.5 + 0.1,
+        opacity: 0,
+        active: false
+      });
+    }
+
+    function startAnimation() {
+      const startScreen = document.getElementById('startScreen');
+      startScreen.classList.add('fade-out');
+      
+      setTimeout(() => {
+        startScreen.classList.add('hidden');
+        animationStarted = true;
+        animate();
+        
+        // Remove any existing background music
+        document.querySelectorAll('#backgroundSong').forEach(e => e.remove());
+        
+        // Create and play background music (hidden video element)
+        let backgroundMusic = document.createElement('video');
+        backgroundMusic.id = 'backgroundSong';
+        backgroundMusic.src = 'songpart.mp4';
+        backgroundMusic.style.display = 'none';
+        backgroundMusic.autoplay = true;
+        backgroundMusic.volume = 0.7; // Adjust volume as needed
+        document.body.appendChild(backgroundMusic);
+        
+        // Notify parent window that animation has started
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage('songStarted', '*');
+        }
+        
+        // After 1.5 seconds, trigger the shine part (background darkens)
+        setTimeout(() => {
+          backgroundDark = true;
+          // Change both canvas and body background color
+          document.body.style.background = '#1a1a2e';
+          canvas.style.background = '#1a1a2e';
+        }, 1500);
+        
+        // Wait for the video to finish playing, then restart it automatically
+        backgroundMusic.addEventListener('ended', () => {
+          // Restart the song automatically
+          backgroundMusic.currentTime = 0;
+          backgroundMusic.play().catch(e => console.log('Auto-restart failed:', e));
+        });
+
+        // Show the button after 16 seconds, wait for user to press it
+        setTimeout(() => {
+          const btn = document.getElementById('goToCakeBtn');
+          btn.style.display = 'block';
+          btn.onclick = function() {
+            // Stop the song if playing
+            const backgroundMusic = document.getElementById('backgroundSong');
+            if (backgroundMusic) {
+              backgroundMusic.pause();
+              backgroundMusic.remove();
+            }
+            // Go directly to birthdaycake_stars.html
+            window.location.href = 'birthdaycake_stars.html';
+          };
+        }, 16000); // 16 seconds
+      }, 1000);
+    }
+
+    function drawFans() {
+      const fanSpacing = 35;
+      const rowSpacing = 50;
+      const fansPerRow = 12;
+      const spectatorRows = 4; // Number of spectator rows
+      const spectatorsPerRow = 16;
+      const spectatorSpacing = 32;
+      const spectatorRowSpacing = 38;
+      const mainFansTop = 120; // Y position for main fans (moved down for text)
+      const spectatorsTop = mainFansTop + 3 * rowSpacing + 60; // Add extra space between main fans and spectators
+
+      // --- Draw main fans (party row) ---
+      for (let row = 0; row < 3; row++) {
+        const rowY = mainFansTop + row * rowSpacing;
+        const rowStartX = centerX - ((fansPerRow - 1) * fanSpacing) / 2;
+        for (let i = 0; i < fansPerRow; i++) {
+          const x = rowStartX + i * fanSpacing;
+          const fanIndex = row * fansPerRow + i;
+
+          ctx.save();
+          ctx.translate(x, rowY);
+
+          // Set opacity and glow for selected fan
+          if (backgroundDark) {
+            if (fanIndex === selectedFan) {
+              ctx.globalAlpha = 1;
+              ctx.shadowColor = '#FFD700';
+              ctx.shadowBlur = 20;
+            } else {
+              ctx.globalAlpha = 0.7;
+            }
+          }
+
+          // Head
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ffe0b2';
+          ctx.fill();
+
+          // Body
+          ctx.beginPath();
+          ctx.ellipse(0, 18, 13, 14, 0, 0, 2 * Math.PI);
+          ctx.fillStyle = (backgroundDark && fanIndex === selectedFan) ? '#add8e6' : '#fff';
+          ctx.fill();
+
+          // Arms - seated position (arms down)
+          ctx.strokeStyle = '#ffe0b2';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-10, 18);
+          ctx.lineTo(-12, 25);
+          ctx.moveTo(10, 18);
+          ctx.lineTo(12, 25);
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+      }
+
+      // --- Draw spectators (audience rows) ---
+      for (let row = 0; row < spectatorRows; row++) {
+        const rowY = spectatorsTop + row * spectatorRowSpacing;
+        const rowStartX = centerX - ((spectatorsPerRow - 1) * spectatorSpacing) / 2;
+        for (let i = 0; i < spectatorsPerRow; i++) {
+          const x = rowStartX + i * spectatorSpacing;
+          ctx.save();
+          ctx.globalAlpha = backgroundDark ? 0.6 : 1.0;
+          ctx.translate(x, rowY);
+
+          // Head
+          ctx.beginPath();
+          ctx.arc(0, 0, 9, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ffe0b2';
+          ctx.fill();
+
+          // Body
+          ctx.beginPath();
+          ctx.ellipse(0, 16, 11, 12, 0, 0, 2 * Math.PI);
+          // Random shirt color for spectators
+          const colors = ['#1976d2', '#388e3c', '#fbc02d', '#8e24aa', '#ff7043', '#0288d1', '#c62828', '#fbc02d', '#43a047', '#6d4c41'];
+          ctx.fillStyle = colors[(row * spectatorsPerRow + i) % colors.length];
+          ctx.fill();
+
+          // Arms - seated position (arms down)
+          ctx.strokeStyle = '#ffe0b2';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-8, 16);
+          ctx.lineTo(-10, 22);
+          ctx.moveTo(8, 16);
+          ctx.lineTo(10, 22);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawMusicNotes() {
+      const fanSpacing = 35;
+      const rowSpacing = 50;
+      const fansPerRow = 12;
+      
+      ctx.save();
+      ctx.font = '28px Arial';
+      ctx.fillStyle = '#FFD700';
+      
+      musicNotes.forEach((note, index) => {
+        // Before background darkens - random notes across screen
+        if (!backgroundDark) {
+          ctx.save();
+          ctx.translate(note.x, note.y);
+          ctx.rotate(note.rotation);
+          ctx.globalAlpha = note.opacity;
+          ctx.fillText(note.symbol, 0, 0);
+          ctx.restore();
+          
+          // Update note position
+          note.y -= note.speed;
+          note.rotation += 0.02;
+          
+          // Reset note when it goes off screen
+          if (note.y < -50) {
+            note.y = canvas.height + 50;
+            note.x = Math.random() * canvas.width;
+          }
+                 } else {
+           // After background darkens - notes from the chosen fan
+           if (!note.active) {
+             note.active = true;
+             // Calculate the chosen fan position
+             let selectedRow, selectedCol, selectedFanX, selectedFanY;
+             
+                            if (selectedFan < 36) {
+                 // Main 3 rows (0-35)
+                 selectedRow = Math.floor(selectedFan / fansPerRow);
+                 selectedCol = selectedFan % fansPerRow;
+                 selectedFanX = centerX - ((fansPerRow - 1) * fanSpacing) / 2 + selectedCol * fanSpacing;
+                 selectedFanY = 100 + selectedRow * rowSpacing;
+               } else {
+                 // Additional rows (36-51)
+                 const sideRowIndex = selectedFan - 36;
+                 selectedRow = 3 + Math.floor(sideRowIndex / 8);
+                 selectedCol = sideRowIndex % 8;
+                 selectedFanX = centerX - ((8 - 1) * fanSpacing) / 2 + selectedCol * fanSpacing;
+                 selectedFanY = 100 + selectedRow * rowSpacing;
+               }
+             note.x = selectedFanX + (Math.random() - 0.5) * 20;
+             note.y = selectedFanY;
+           }
+          
+          if (note.active) {
+            ctx.save();
+            ctx.translate(note.x, note.y);
+            ctx.rotate(note.rotation);
+            ctx.globalAlpha = note.opacity;
+            ctx.fillText(note.symbol, 0, 0);
+            ctx.restore();
+            
+            // Update note position - float upward from the middle fan
+            note.y -= note.speed;
+            note.x += (Math.random() - 0.5) * 0.5;
+            note.rotation += 0.02;
+            
+                         // Reset note when it goes off screen
+             if (note.y < -50) {
+               let selectedRow, selectedCol, selectedFanX, selectedFanY;
+               
+               if (selectedFan < 36) {
+                 // Main 3 rows (0-35)
+                 selectedRow = Math.floor(selectedFan / fansPerRow);
+                 selectedCol = selectedFan % fansPerRow;
+                 selectedFanX = centerX - ((fansPerRow - 1) * fanSpacing) / 2 + selectedCol * fanSpacing;
+                 selectedFanY = 100 + selectedRow * rowSpacing;
+               } else {
+                 // Additional rows (36-51)
+                 const sideRowIndex = selectedFan - 36;
+                 selectedRow = 3 + Math.floor(sideRowIndex / 8);
+                 selectedCol = sideRowIndex % 8;
+                 selectedFanX = centerX - ((8 - 1) * fanSpacing) / 2 + selectedCol * fanSpacing;
+                 selectedFanY = 100 + selectedRow * rowSpacing;
+               }
+               note.y = selectedFanY;
+               note.x = selectedFanX + (Math.random() - 0.5) * 20;
+             }
+          }
+        }
+      });
+      
+      ctx.restore();
+    }
+
+    function drawStars() {
+      if (!backgroundDark) return;
+      
+      ctx.save();
+      
+      stars.forEach((star, index) => {
+        if (!star.active) {
+          star.active = true;
+          star.opacity = 0;
+        }
+        
+        if (star.active) {
+          // Fade in stars gradually
+          if (star.opacity < 1) {
+            star.opacity += 0.02;
+          }
+          
+          ctx.save();
+          ctx.translate(star.x, star.y);
+          ctx.globalAlpha = star.opacity;
+          
+          // Draw realistic star shape
+          ctx.beginPath();
+          ctx.fillStyle = '#FFD700';
+          
+          // Create 5-pointed star
+          const outerRadius = star.size;
+          const innerRadius = star.size * 0.4;
+          const spikes = 5;
+          
+          for (let i = 0; i < spikes * 2; i++) {
+            const angle = (i * Math.PI) / spikes;
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          ctx.fill();
+          
+          // Add realistic glow effect
+          ctx.shadowColor = '#FFD700';
+          ctx.shadowBlur = star.size * 3;
+          ctx.globalAlpha = star.opacity * 0.3;
+          ctx.fill();
+          
+          // Add twinkle variation based on time
+          const twinkle = Math.sin(time * 2 + index) * 0.3 + 0.7;
+          ctx.globalAlpha = star.opacity * twinkle * 0.8;
+          ctx.shadowBlur = star.size * 2 * twinkle;
+          ctx.fill();
+          
+          ctx.restore();
+          
+          // Move stars upward slowly
+          star.y -= star.speed;
+          
+          // Reset star when it goes off screen
+          if (star.y < -10) {
+            star.y = canvas.height + 10;
+            star.x = Math.random() * canvas.width;
+          }
+        }
+      });
+      
+      ctx.restore();
+    }
+
+    function animate() {
+      if (!animationStarted) return;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update time
+      time += 0.02;
+      
+      // Draw dark background overlay if needed
+      if (backgroundDark) {
+        if (darkTransition < 1) {
+          darkTransition += 0.02;
+        }
+        // No need for overlay since we changed the actual background colors
+      }
+      
+      // Draw fans
+      drawFans();
+      
+      // Draw music notes
+      drawMusicNotes();
+
+      // Draw stars
+      drawStars();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Don't start animation automatically - wait for user to click start
+  </script>
+</body>
+</html> 

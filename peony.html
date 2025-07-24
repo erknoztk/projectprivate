@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Peony (Şakayık) Çizimi</title>
+  <style>
+    body {
+      background: #f3e7f6;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(243,231,246,0.98);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      transition: opacity 0.7s;
+    }
+    .hidden { opacity: 0; pointer-events: none; }
+    .fadeout { opacity: 0; transition: opacity 0.7s; }
+    .fadein { opacity: 1; transition: opacity 0.7s; }
+    .giris-btn {
+      margin-top: 32px;
+      padding: 14px 38px;
+      font-size: 1.3rem;
+      border-radius: 18px;
+      border: none;
+      background: #f06292;
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-weight: bold;
+      box-shadow: 0 2px 12px #e1bee7;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .giris-btn:hover { background: #ec407a; }
+    .giris-yazi {
+      font-size: 2.5rem;
+      color: #d500f9;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-shadow: 0 6px 24px #8e24aa, 0 0 8px #fff, 0 0 2px #e1bee7;
+      margin-bottom: 18px;
+      text-align: center;
+      filter: brightness(1.15) contrast(1.2);
+    }
+    .mesaj-yazi {
+      font-size: 1.3rem;
+      color: #6d4c41;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-weight: bold;
+      text-shadow: 0 2px 8px #fff, 0 0 2px #e1bee7;
+      margin-top: 32px;
+      text-align: center;
+      min-height: 2.5em;
+    }
+    canvas {
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 0 24px #e1bee7;
+      display: block;
+    }
+    /* SONG.HTML'DEKİ BUTON STİLİ */
+    .start-button {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+      animation: fadeInUp 1s ease-out 1s both;
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      z-index: 1000;
+    }
+    .start-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 35px rgba(76, 175, 80, 0.6);
+      background: linear-gradient(135deg, #45a049, #4CAF50);
+    }
+    .start-button:active {
+      transform: translateY(-1px);
+    }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    /* --- */
+    #goalBtn:hover {
+      background: linear-gradient(135deg, #f8bbd0 60%, #f06292 100%);
+      box-shadow: 0 12px 35px #ec407a, 0 0 0 6px #fffde7;
+      transform: translateY(-3px) scale(1.06);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="girisOverlay">
+    <div class="giris-yazi">O repliği başlat</div>
+    <button class="giris-btn" id="girisBtn">Başlat</button>
+    <div class="mesaj-yazi" id="mesajYazi" style="display:none;"></div>
+  </div>
+  <div id="peonyContainer" style="display:none; position:relative; width:500px; height:500px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <canvas id="peonyCanvas" width="500" height="500"></canvas>
+    <button id="goalBtn" style="display:none; position:absolute; left:50%; top:440px; transform:translateX(-50%); min-width:110px; min-height:44px; border-radius:32px; background:linear-gradient(135deg, #f06292 60%, #f8bbd0 100%); box-shadow:0 8px 25px #e1bee7; border:none; cursor:pointer; z-index:10; transition:all 0.3s; opacity:0.97; color:#fff; font-size:1.08rem; font-weight:bold; font-family:'Segoe UI', Arial, sans-serif; letter-spacing:0.04em;">Devam</button>
+  </div>
+  <script>
+    // Giriş ekranı ve buton
+    const girisOverlay = document.getElementById('girisOverlay');
+    const girisBtn = document.getElementById('girisBtn');
+    const mesajYazi = document.getElementById('mesajYazi');
+    const peonyCanvas = document.getElementById('peonyCanvas');
+
+    girisBtn.addEventListener('click', function() {
+      girisBtn.style.display = 'none';
+      mesajYazi.style.display = 'block';
+      // Video ekle (görünmez, autoplay, loop, muted)
+      let video = document.createElement('video');
+      video.src = 'cicek.mp4';
+      video.autoplay = true;
+      video.loop = false;
+      video.muted = false;
+      video.style.display = 'none';
+      video.id = 'cicekVideo';
+      document.body.appendChild(video);
+      
+      video.addEventListener('loadedmetadata', function() {
+        // cicek.mp4'ün süresi yüklendiğinde, bitişinden 8 sn önce syfon.mp4 başlat
+        // if (video.duration > 8) {
+        //   setTimeout(function() {
+        //     let syfonVideo = document.createElement('video');
+        //     syfonVideo.src = 'syfon.mp4';
+        //     syfonVideo.autoplay = true;
+        //     syfonVideo.loop = false;
+        //     syfonVideo.muted = false;
+        //     syfonVideo.style.display = 'none';
+        //     syfonVideo.id = 'syfonVideo';
+        //     document.body.appendChild(syfonVideo);
+        //     syfonVideo.addEventListener('loadedmetadata', function() {
+        //       syfonVideo.currentTime = 8;
+        //       syfonVideo.play();
+        //     });
+        //   }, (video.duration - 8) * 1000);
+        // }
+      });
+      function yazMesaj(mesaj, sonraki, delay) {
+        mesajYazi.textContent = '';
+        let i = 0;
+        function harfHarf() {
+          if (i <= mesaj.length) {
+            mesajYazi.textContent = mesaj.slice(0, i);
+            i++;
+            setTimeout(harfHarf, 38);
+          } else if (sonraki) {
+            setTimeout(sonraki, delay);
+          }
+        }
+        harfHarf();
+      }
+      yazMesaj('bu bu ne', function() {
+        yazMesaj('ben sana papatya almam', function() {
+          yazMesaj('ben sana gül de almam', function() {
+            yazMesaj('ben sana şakayık alırım', function() {
+              // syfon.mp4 videosunu başlat
+              let syfonVideo = document.createElement('video');
+              syfonVideo.src = 'syfon.mp4';
+              syfonVideo.autoplay = true;
+              syfonVideo.loop = false;
+              syfonVideo.muted = false;
+              syfonVideo.style.display = 'none';
+              syfonVideo.id = 'syfonVideo';
+              document.body.appendChild(syfonVideo);
+              // Video yüklenince başlat
+              syfonVideo.addEventListener('loadedmetadata', function() {
+                syfonVideo.currentTime = 0;
+                syfonVideo.play();
+              });
+              yazMesaj('ben sana beyaz pembe şakayık alırım', function() {
+                yazMesaj('SEN ŞAKAYIK SEVERSİN ÇÜNKÜ', function() {
+                  setTimeout(() => {
+                    girisOverlay.classList.add('fadeout');
+                    setTimeout(() => {
+                      girisOverlay.style.display = 'none';
+                      document.getElementById('peonyContainer').style.display = 'flex';
+                      startPeonyAnim();
+                    }, 700);
+                  }, 500);
+                }, 500);
+              }, 500);
+            }, 500);
+          }, 500);
+        }, 500);
+      }, 1000);
+    });
+
+    // Peony animasyon kodu (önceki kodun tamamı buraya fonksiyon olarak alınacak)
+    function startPeonyAnim() {
+      const ctx = peonyCanvas.getContext('2d');
+      const centerX = 250;
+      const centerY = 270;
+      const outerPetals = 10;
+      const middlePetals = 8;
+      const innerPetals = 6;
+      const outerColor = '#f8bbd0';
+      const middleColor = '#f06292';
+      const innerColor = '#ec407a';
+      const openDuration = 1200;
+      const petalGrowDuration = 700;
+      const heartLeaves = [
+        {x: centerX + 38, y: centerY + 180, size: 32, angle: Math.PI / 4, color: '#66bb6a', delay: 0},
+        {x: centerX - 38, y: centerY + 260, size: 28, angle: -Math.PI / 3, color: '#388e3c', delay: 200},
+        {x: centerX + 32, y: centerY + 340, size: 24, angle: Math.PI / 3, color: '#43a047', delay: 400},
+      ];
+      let startTime = null;
+      function drawPetal(cx, cy, r1, r2, angle, color, grow, wave, alpha=1) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle + wave);
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(-r1 * grow, -r2 * grow, -r1 * grow, r2 * grow, 0, r2 * 1.2 * grow);
+        ctx.bezierCurveTo(r1 * grow, r2 * grow, r1 * grow, -r2 * grow, 0, 0);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.shadowColor = '#e1bee7';
+        ctx.shadowBlur = 16 * grow;
+        ctx.fill();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+      function drawHeartLeaf(cx, cy, size, angle, color, grow) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.scale(size * grow, size * grow);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(0, -0.6, -0.8, -0.6, -0.8, 0);
+        ctx.bezierCurveTo(-0.8, 0.7, 0, 1, 0, 1.4);
+        ctx.bezierCurveTo(0, 1, 0.8, 0.7, 0.8, 0);
+        ctx.bezierCurveTo(0.8, -0.6, 0, -0.6, 0, 0);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.shadowColor = '#a5d6a7';
+        ctx.shadowBlur = 8 * grow;
+        ctx.globalAlpha = grow;
+        ctx.fill();
+        ctx.restore();
+      }
+      function drawStem(grow) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY + 40);
+        ctx.bezierCurveTo(centerX + 30, centerY + 180, centerX - 30, centerY + 320, centerX, centerY + 420);
+        ctx.lineWidth = 22 * grow;
+        ctx.strokeStyle = '#81c784';
+        ctx.shadowColor = '#a5d6a7';
+        ctx.shadowBlur = 16 * grow;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = grow;
+        ctx.stroke();
+        ctx.restore();
+      }
+      function drawCenter(grow, pulse) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY-22, 18 * grow * (1 + 0.08 * pulse), 0, 2 * Math.PI);
+        ctx.fillStyle = '#ffd54f';
+        ctx.shadowColor = '#fffde7';
+        ctx.shadowBlur = 12 * grow * (1 + 0.08 * pulse);
+        ctx.globalAlpha = grow;
+        ctx.fill();
+        ctx.restore();
+      }
+      let animatedText = 'Yeni başlangıçlar gibi kokuyor';
+      let animatedTextLength = 0;
+      function animatePeony(ts) {
+        if (!startTime) startTime = ts;
+        const t = ts - startTime;
+        ctx.clearRect(0, 0, peonyCanvas.width, peonyCanvas.height);
+        let outerRatio = Math.min(1, t / openDuration);
+        let middleRatio = Math.max(0, Math.min(1, (t - openDuration) / openDuration));
+        let innerRatio = Math.max(0, Math.min(1, (t - 2 * openDuration) / openDuration));
+        let stemRatio = Math.max(0, Math.min(1, (t - openDuration * 2.5) / 700));
+        let centerRatio = Math.max(0, Math.min(1, (t - openDuration * 2.7) / 500));
+        const now = ts / 1000;
+        const pulse = Math.sin(now * 2.2);
+        // --- Harf harf animasyonlu yazı ---
+        ctx.save();
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#d500f9';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 16;
+        // Her 55ms'de bir harf daha göster
+        let maxLen = Math.min(animatedText.length, Math.floor(t / 55));
+        ctx.fillText(animatedText.slice(0, maxLen), peonyCanvas.width / 2, 54);
+        ctx.restore();
+        // ---
+        for (let i = 0; i < outerPetals; i++) {
+          const angle = (2 * Math.PI / outerPetals) * i + Math.PI/10;
+          const delay = i * 60;
+          let grow = Math.max(0, Math.min(1, (t - delay) / petalGrowDuration));
+          grow = Math.min(grow, outerRatio);
+          const wave = 0.08 * Math.sin(now * 1.2 + i);
+          drawPetal(centerX, centerY, 70, 120, angle, outerColor, grow, wave, 0.85 * grow);
+        }
+        for (let i = 0; i < middlePetals; i++) {
+          const angle = (2 * Math.PI / middlePetals) * i;
+          const delay = i * 60;
+          let grow = Math.max(0, Math.min(1, (t - openDuration - delay) / petalGrowDuration));
+          grow = Math.min(grow, middleRatio);
+          const wave = 0.09 * Math.sin(now * 1.5 + i + 1);
+          drawPetal(centerX, centerY-10, 50, 80, angle, middleColor, grow, wave, 0.92 * grow);
+        }
+        for (let i = 0; i < innerPetals; i++) {
+          const angle = (2 * Math.PI / innerPetals) * i + Math.PI/6;
+          const delay = i * 60;
+          let grow = Math.max(0, Math.min(1, (t - 2 * openDuration - delay) / petalGrowDuration));
+          grow = Math.min(grow, innerRatio);
+          const wave = 0.11 * Math.sin(now * 1.7 + i + 2);
+          drawPetal(centerX, centerY-18, 28, 44, angle, innerColor, grow, wave, 1 * grow);
+        }
+        drawStem(stemRatio);
+        heartLeaves.forEach((leaf, idx) => {
+          let grow = Math.max(0, Math.min(1, (t - openDuration * 2.5 - leaf.delay) / 500));
+          grow = Math.min(grow, stemRatio);
+          drawHeartLeaf(leaf.x, leaf.y, leaf.size, leaf.angle, leaf.color, grow);
+        });
+        drawCenter(centerRatio, pulse);
+        requestAnimationFrame(animatePeony);
+      }
+      requestAnimationFrame(animatePeony);
+      // Buton 4 sn sonra görünsün
+      setTimeout(() => {
+        document.getElementById('goalBtn').style.display = 'block';
+      }, 8000);
+      // Birden fazla event eklenmesini önle
+      if (!window._goalBtnAdded) {
+        window._goalBtnAdded = true;
+        document.getElementById('goalBtn').addEventListener('click', function() {
+          window.location.href = 'goal.html';
+        });
+      }
+    }
+  </script>
+</body>
+</html> 

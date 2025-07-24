@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Birthday Cake Among the Stars</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #0a1026;
+      overflow: hidden;
+    }
+    canvas {
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starCakeCanvas" width="500" height="500"></canvas>
+  <video id="sgagirisVideo" src="sgagiris.mp4" style="display:none"></video>
+  <div id="blowContainer" style="position:absolute;left:50%;top:80px;transform:translateX(-50%);display:none;z-index:10;">
+    <div style="background:#fff;padding:18px 28px;min-width:220px;max-width:92vw;border-radius:18px;box-shadow:0 4px 16px #8884;border:3px solid #3949ab;text-align:center;">
+      <div id="blowPrompt" style="font-size:20px;color:#3949ab;font-weight:bold;margin-bottom:12px;font-family:Arial,sans-serif;">Mumları üflemek için tıkla ve üfle!</div>
+      <button id="blowBtn" style="font-size:18px;padding:8px 28px;background:#3949ab;color:#fffbe6;border-radius:10px;border:2px solid #8ecae6;box-shadow:0 2px 8px #3949ab33;cursor:pointer;font-weight:bold;font-family:Arial,sans-serif;">Mumları Üfle</button>
+      <div id="blowStatus" style="margin-top:12px;font-size:17px;color:#7c3aed;font-family:Arial,sans-serif;"></div>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById('starCakeCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const baseY = 350;
+    let time = 0;
+    // Candle lighting state
+    let candlesLit = false;
+    let candleLighting = false;
+    let litCandleCount = 0;
+    let candleLightTimer = 0;
+    let showButton = true;
+    // Button dimensions
+    const btn = {
+      x: canvas.width/2 - 90,
+      y: 0, // will be set dynamically
+      w: 180,
+      h: 48
+    };
+    // Shooting star state
+    let shootingStarActive = false;
+    let shootingStarStart = 0;
+    let shootingStarX = 0, shootingStarY = 0;
+    let shootingStarVX = 0, shootingStarVY = 0;
+    let shootingStarTimer = 0;
+    let shootingStarTriggered = false;
+    // Wish modal state
+    let showWishPrompt = false;
+    let wishPhase = 0; // 0: 'Did you see...', 1: 'Make a wish', 2: countdown
+    let wishPhaseTimer = 0;
+    let wishCountdown = 10;
+    let lastWishUpdate = 0;
+    let showWishButtons = false;
+    let wishBoxBtn = { yes: {x:0,y:0,w:0,h:0}, no: {x:0,y:0,w:0,h:0} };
+    let showWaitingBox = false;
+    let waitingBtn = {x:0, y:0, w:0, h:0};
+    // Confetti and birthday message state
+    let showConfetti = false;
+    let confettiParticles = [];
+    let confettiStartTime = 0;
+    let showBirthdayText = false;
+    let showBlowPrompt = false;
+    let blowListening = false;
+    let blowDetected = false;
+    let blowTimeout = null;
+    let audioStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
+    let blowStartTime = 0;
+    let blowBtn = null;
+    let blowStatus = null;
+    let blowContainer = null;
+
+    // Generate stars
+    const stars = Array.from({length: 120}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height * 0.7,
+      r: Math.random() * 1.2 + 0.5,
+      twinkle: Math.random() * Math.PI * 2
+    }));
+
+    function drawStars() {
+      for (let star of stars) {
+        ctx.save();
+        const twinkle = 0.7 + 0.5 * Math.sin(time * 2 + star.twinkle);
+        ctx.globalAlpha = twinkle;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fffbe6';
+        ctx.shadowColor = '#fffbe6';
+        ctx.shadowBlur = 8 * twinkle;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawCake() {
+      // Cake base shadow
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(centerX, baseY + 18, 70, 18, 0, 0, 2 * Math.PI);
+      ctx.fillStyle = '#0006';
+      ctx.globalAlpha = 0.3;
+      ctx.fill();
+      ctx.restore();
+
+      // Cake base (bottom layer)
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(centerX, baseY, 70, 22, 0, 0, 2 * Math.PI);
+      ctx.fillStyle = '#f7c59f';
+      ctx.fill();
+      ctx.strokeStyle = '#b97a56';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+
+      // Cake body
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(centerX - 70, baseY);
+      ctx.lineTo(centerX - 70, baseY - 70);
+      ctx.ellipse(centerX, baseY - 70, 70, 22, 0, Math.PI, 0, true);
+      ctx.lineTo(centerX + 70, baseY);
+      ctx.ellipse(centerX, baseY, 70, 22, 0, 0, Math.PI, false);
+      ctx.closePath();
+      ctx.fillStyle = '#ffe0b2';
+      ctx.fill();
+      ctx.strokeStyle = '#b97a56';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+
+      // Cake top icing
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(centerX, baseY - 70, 70, 22, 0, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = '#f8b500';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.restore();
+
+      // Dripping icing
+      for (let i = 0; i < 6; i++) {
+        const dripX = centerX - 55 + i * 22 + Math.sin(time + i) * 3;
+        const dripY = baseY - 50 + Math.abs(Math.sin(time * 1.2 + i)) * 10;
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(dripX, dripY, 7, 12, 0, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Candles
+      const candleCount = 5;
+      for (let i = 0; i < candleCount; i++) {
+        const x = centerX - 36 + i * 18;
+        const y = baseY - 90;
+        // Candle body
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x - 4, y, 8, 28);
+        ctx.fillStyle = i % 2 === 0 ? '#8ecae6' : '#ffb4d9';
+        ctx.fill();
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        // Candle stripes
+        for (let j = 0; j < 3; j++) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(x - 4, y + 6 + j * 7);
+          ctx.lineTo(x + 4, y + 3 + j * 7);
+          ctx.strokeStyle = i % 2 === 0 ? '#fff' : '#f06292';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Flame (animated) only if this candle is lit
+        if (candlesLit || (candleLighting && i < litCandleCount)) {
+          drawFlame(x, y, i);
+        }
+      }
+      // Animate candle lighting sequence
+      if (candleLighting) {
+        if (Date.now() - candleLightTimer > 300 && litCandleCount < candleCount) {
+          litCandleCount++;
+          candleLightTimer = Date.now();
+        }
+        if (litCandleCount === candleCount) {
+          candleLighting = false;
+          candlesLit = true;
+          shootingStarTriggered = false; // allow new shooting star after relighting
+          shootingStarTimer = Date.now();
+        }
+      }
+      // Trigger shooting star 2 seconds after candles are lit
+      if (candlesLit && !shootingStarActive && !shootingStarTriggered && shootingStarTimer && Date.now() - shootingStarTimer > 2000) {
+        shootingStarActive = true;
+        shootingStarTriggered = true;
+        // Randomize start position and velocity for a diagonal shooting star
+        shootingStarStart = Date.now();
+        shootingStarX = Math.random() * 100 + 60; // somewhere left
+        shootingStarY = Math.random() * 80 + 40; // somewhere top
+        shootingStarVX = 5 + Math.random() * 2; // speed x
+        shootingStarVY = 2 + Math.random() * 1.5; // speed y
+      }
+      // drawCake fonksiyonunun sonunda, mumlar yandıktan sonra blow prompt göster
+      // (Artık dilek tutma sonrası gösterilecek, burada otomatik gösterilmeyecek)
+    }
+
+    function drawFlame(x, y, i) {
+      ctx.save();
+      const flicker = Math.sin(time * 6 + i * 2) * 2 + Math.random() * 1.2;
+      ctx.beginPath();
+      ctx.ellipse(x, y - 8 - flicker, 4, 9 + flicker, 0, 0, 2 * Math.PI);
+      ctx.fillStyle = 'gold';
+      ctx.globalAlpha = 0.85;
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x, y - 12 - flicker, 1.5, 4 + flicker * 0.5, 0, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fffbe6';
+      ctx.globalAlpha = 0.7;
+      ctx.shadowBlur = 0;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawShootingStar() {
+      if (!shootingStarActive) return;
+      // Shooting star position update
+      const elapsed = (Date.now() - shootingStarStart) / 16;
+      const x = shootingStarX + shootingStarVX * elapsed;
+      const y = shootingStarY + shootingStarVY * elapsed;
+      // Draw tail
+      ctx.save();
+      const grad = ctx.createLinearGradient(x - 60, y - 20, x, y);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, '#fffbe6');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - 60, y - 20);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      // Draw head
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fffbe6';
+      ctx.shadowColor = '#fffbe6';
+      ctx.shadowBlur = 16;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      ctx.restore();
+      // End shooting star if out of bounds
+      if (x > canvas.width + 40 || y > canvas.height + 40) {
+        shootingStarActive = false;
+        // Start wish prompt after shooting star
+        showWishPrompt = true;
+        wishPhase = 0;
+        wishPhaseTimer = Date.now();
+        wishCountdown = 10;
+        lastWishUpdate = Date.now();
+      }
+    }
+
+    function drawWishBox() {
+      if (!showWishPrompt) return;
+      // Phase 0: 'Did you see the shooting star?'
+      if (wishPhase === 0) {
+        ctx.save();
+        const boxW = 260, boxH = 80;
+        const boxX = canvas.width/2 - boxW/2;
+        const boxY = 110;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#8884';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#3949ab';
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = 22;
+        ctx.font = `bold ${fontSize}px Arial`;
+        let text = 'Yıldız kaydı gördün mü?';
+        // Reduce font size if text is too wide
+        while (ctx.measureText(text).width > boxW - 24 && fontSize > 12) {
+          fontSize -= 1;
+          ctx.font = `bold ${fontSize}px Arial`;
+        }
+        ctx.fillStyle = '#3949ab';
+        ctx.fillText(text, canvas.width/2, boxY + boxH/2);
+        ctx.restore();
+        // Timer for this phase
+        if (!wishPhaseTimer) wishPhaseTimer = Date.now();
+        if (Date.now() - wishPhaseTimer > 1500) {
+          wishPhase = 1;
+          wishPhaseTimer = 0;
+        }
+      }
+      // Phase 1: 'Make a wish'
+      else if (wishPhase === 1) {
+        ctx.save();
+        const boxW = 260, boxH = 80;
+        const boxX = canvas.width/2 - boxW/2;
+        const boxY = 110;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#8884';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#3949ab';
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = 22;
+        ctx.font = `bold ${fontSize}px Arial`;
+        let text = 'İstediğin kadar dilek tut';
+        while (ctx.measureText(text).width > boxW - 24 && fontSize > 12) {
+          fontSize -= 1;
+          ctx.font = `bold ${fontSize}px Arial`;
+        }
+        ctx.fillStyle = '#3949ab';
+        ctx.fillText(text, canvas.width/2, boxY + boxH/2);
+        ctx.restore();
+        // Timer for this phase
+        if (!wishPhaseTimer) wishPhaseTimer = Date.now();
+        if (Date.now() - wishPhaseTimer > 2000) {
+          wishPhase = 2;
+          wishPhaseTimer = 0;
+          wishCountdown = 10;
+          lastWishUpdate = Date.now();
+        }
+      }
+      // Phase 2: Countdown
+      else if (wishPhase === 2) {
+        ctx.save();
+        const smallBoxW = 120, smallBoxH = 90;
+        const smallBoxX = canvas.width/2 - smallBoxW/2;
+        const smallBoxY = 80;
+        ctx.beginPath();
+        ctx.roundRect(smallBoxX, smallBoxY, smallBoxW, smallBoxH, 18);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#8884';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#3949ab';
+        ctx.stroke();
+        ctx.font = 'bold 48px Arial';
+        ctx.fillStyle = '#3949ab';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(wishCountdown, canvas.width/2, smallBoxY + smallBoxH/2);
+        ctx.restore();
+        // Countdown logic (update every second)
+        if (Date.now() - lastWishUpdate >= 1000) {
+          wishCountdown--;
+          lastWishUpdate = Date.now();
+          if (wishCountdown < 0) {
+            wishPhase = 3;
+            showWishButtons = true;
+          }
+        }
+      }
+      // Phase 3: Ask if made wish, show Yes/No buttons
+      else if (wishPhase === 3 && showWishButtons) {
+        ctx.save();
+        const boxW = 260, boxH = 80;
+        const boxX = canvas.width/2 - boxW/2;
+        const boxY = 110;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#8884';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#3949ab';
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = 20;
+        ctx.font = `bold ${fontSize}px Arial`;
+        let text = 'Dileklerini tuttun mu?';
+        while (ctx.measureText(text).width > boxW - 24 && fontSize > 12) {
+          fontSize -= 1;
+          ctx.font = `bold ${fontSize}px Arial`;
+        }
+        ctx.fillStyle = '#3949ab';
+        ctx.fillText(text, canvas.width/2, boxY + boxH/2 - 18);
+        // Draw Yes/No buttons
+        const btnW = 80, btnH = 36;
+        const btnY = boxY + boxH/2 + 14;
+        const yesBtnX = canvas.width/2 - 50 - btnW/2;
+        const noBtnX = canvas.width/2 + 50 - btnW/2;
+        // Yes button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(yesBtnX, btnY, btnW, btnH, 10);
+        ctx.fillStyle = '#3949ab';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#8ecae6';
+        ctx.stroke();
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = '#fffbe6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Evet', yesBtnX + btnW/2, btnY + btnH/2);
+        ctx.restore();
+        // No button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(noBtnX, btnY, btnW, btnH, 10);
+        ctx.fillStyle = '#7c3aed';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#b39ddb';
+        ctx.stroke();
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = '#fffbe6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Hayır', noBtnX + btnW/2, btnY + btnH/2);
+        ctx.restore();
+        // Store for click detection
+        wishBoxBtn.yes = {x: yesBtnX, y: btnY, w: btnW, h: btnH};
+        wishBoxBtn.no = {x: noBtnX, y: btnY, w: btnW, h: btnH};
+        ctx.restore();
+      }
+      // Waiting box if No is pressed
+      if (showWaitingBox) {
+        ctx.save();
+        const boxW = 260, boxH = 80;
+        const boxX = canvas.width/2 - boxW/2;
+        const boxY = 110;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#8884';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#7c3aed';
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = 20;
+        ctx.font = `bold ${fontSize}px Arial`;
+        let text = "Tamam, bekliyorum :)";
+        while (ctx.measureText(text).width > boxW - 24 && fontSize > 12) {
+          fontSize -= 1;
+          ctx.font = `bold ${fontSize}px Arial`;
+        }
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillText(text, canvas.width/2, boxY + boxH/2 - 14);
+        // Ready button
+        const btnW = 100, btnH = 36;
+        const btnX = canvas.width/2 - btnW/2;
+        const btnY = boxY + boxH/2 + 10;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 10);
+        ctx.fillStyle = '#3949ab';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#8ecae6';
+        ctx.stroke();
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = '#fffbe6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Hazırım', btnX + btnW/2, btnY + btnH/2);
+        ctx.restore();
+        // Store for click detection
+        waitingBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
+        ctx.restore();
+      }
+    }
+
+    // Confetti particle system
+    function startConfetti() {
+      showConfetti = true;
+      showBirthdayText = true;
+      confettiStartTime = Date.now();
+      confettiParticles = [];
+      const colors = ['#f8b500','#ffb4d9','#8ecae6','#7c3aed','#f06292','#fffbe6','#3949ab'];
+      for (let i = 0; i < 80; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 4 + Math.random() * 4;
+        confettiParticles.push({
+          x: canvas.width/2,
+          y: 180,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 2,
+          g: 0.18 + Math.random() * 0.08,
+          color: colors[Math.floor(Math.random()*colors.length)],
+          size: 7 + Math.random() * 6,
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random()-0.5)*0.2
+        });
+      }
+    }
+
+    function drawConfetti() {
+      if (!showConfetti) return;
+      for (let p of confettiParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.g;
+        p.rot += p.rotSpeed;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size/2, -p.size/6, p.size, p.size/3);
+        ctx.restore();
+      }
+    }
+
+    // Draw a star at (x, y) with given radius and color
+    function drawStar(x, y, r, color, alpha=1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = Math.PI/2 + i * 2 * Math.PI / 5;
+        const sx = x + Math.cos(angle) * r;
+        const sy = y - Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+        const angle2 = angle + Math.PI / 5;
+        ctx.lineTo(x + Math.cos(angle2) * r * 0.45, y - Math.sin(angle2) * r * 0.45);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // Map for each character to a 5x7 grid (1=star, 0=empty)
+    const starFont = {
+      'A': [
+        '01110',
+        '10001',
+        '10001',
+        '11111',
+        '10001',
+        '10001',
+        '10001',
+      ],
+      'B': [
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+      ],
+      'D': [
+        '11110',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '11110',
+      ],
+      'H': [
+        '10001',
+        '10001',
+        '10001',
+        '11111',
+        '10001',
+        '10001',
+        '10001',
+      ],
+      'I': [
+        '01110',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '01110',
+      ],
+      'P': [
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+        '10000',
+        '10000',
+        '10000',
+      ],
+      'R': [
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+        '10100',
+        '10010',
+        '10001',
+      ],
+      'T': [
+        '11111',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+      ],
+      'Y': [
+        '10001',
+        '10001',
+        '01010',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+      ],
+      '!': [
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00000',
+        '00100',
+        '00100',
+      ],
+      ' ': [
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+      ],
+      'K': [
+        '10001',
+        '10010',
+        '10100',
+        '11000',
+        '10100',
+        '10010',
+        '10001',
+      ],
+      'G': [
+        '01110',
+        '10001',
+        '10000',
+        '10111',
+        '10001',
+        '10001',
+        '01110',
+      ],
+      'U': [
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '01110',
+      ],
+      'O': [
+        '01110',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '01110',
+      ],
+      'N': [
+        '10001',
+        '11001',
+        '10101',
+        '10011',
+        '10001',
+        '10001',
+        '10001',
+      ],
+    };
+
+    function drawBirthdayText() {
+      if (!showBirthdayText) return;
+      let alpha = 1;
+      if (showConfetti === false) {
+        // Fade out text after confetti
+        alpha = Math.max(0, 1 - (Date.now() - (confettiStartTime+3000))/1000);
+        if (alpha === 0) showBirthdayText = false;
+      }
+      // Two-row message
+      const lines = ['IYIKI', 'DOGDUN'];
+      const maxWidth = canvas.width * 0.92;
+      let starSize = 8, spacing = 4, vSpacing = 12;
+      // Find max star size that fits the widest row
+      let maxChars = Math.max(...lines.map(l => l.length));
+      let charW, totalW;
+      do {
+        charW = 5 * (starSize + spacing);
+        totalW = maxChars * charW + (maxChars-1) * spacing;
+        if (totalW > maxWidth) {
+          starSize -= 0.5;
+          if (starSize < 3) break;
+        } else {
+          break;
+        }
+      } while (true);
+      // Draw each line centered
+      const totalHeight = 2 * 7 * (starSize + spacing) + vSpacing;
+      const startY = 70; // move higher
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const message = lines[lineIdx];
+        const chars = message.length;
+        const lineW = chars * charW + (chars-1) * spacing;
+        const startX = canvas.width/2 - lineW/2;
+        const y = startY + lineIdx * (7 * (starSize + spacing) + vSpacing);
+        for (let i = 0; i < message.length; i++) {
+          const ch = message[i];
+          const grid = starFont[ch] || starFont[' '];
+          for (let row = 0; row < 7; row++) {
+            for (let col = 0; col < 5; col++) {
+              if (grid[row][col] === '1') {
+                drawStar(
+                  startX + i * (charW + spacing) + col * (starSize + spacing),
+                  y + row * (starSize + spacing),
+                  starSize/2,
+                  '#fffbe6',
+                  alpha
+                );
+              }
+            }
+          }
+        }
+      }
+      // Draw 20 festive stars below the text
+      const starColors = ['#f8b500','#ffb4d9','#8ecae6','#7c3aed','#f06292','#fffbe6','#3949ab'];
+      const baseY = startY + totalHeight + 30;
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2 + (Date.now()/1200);
+        const radius = 70 + 18 * Math.sin(Date.now()/800 + i);
+        const x = canvas.width/2 + Math.cos(angle) * radius + Math.sin(Date.now()/400 + i) * 8;
+        const y = baseY + Math.sin(angle) * 24 + Math.cos(Date.now()/600 + i) * 6;
+        const color = starColors[(i + Math.floor(Date.now()/200)) % starColors.length];
+        drawStar(x, y, starSize/1.2 + Math.abs(Math.sin(Date.now()/400 + i))*2, color, alpha);
+      }
+    }
+
+    function showBlowUI() {
+      blowContainer = document.getElementById('blowContainer');
+      blowBtn = document.getElementById('blowBtn');
+      blowStatus = document.getElementById('blowStatus');
+      blowContainer.style.display = 'block';
+      blowStatus.textContent = '';
+      blowBtn.disabled = false;
+      blowBtn.textContent = 'Mumları Üfle';
+      blowBtn.onclick = startBlowDetection;
+    }
+    function hideBlowUI() {
+      if (blowContainer) blowContainer.style.display = 'none';
+    }
+    function startBlowDetection() {
+      blowBtn.disabled = true;
+      blowBtn.textContent = 'Dinleniyor...';
+      blowStatus.textContent = 'Şimdi üfle!';
+      blowListening = true;
+      blowDetected = false;
+      blowStartTime = Date.now();
+      // Mikrofonu başlat
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        audioStream = stream;
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.fftSize);
+        source.connect(analyser);
+        listenForBlow();
+      }).catch(function(err) {
+        blowStatus.textContent = 'Mikrofon erişimi reddedildi.';
+        blowBtn.disabled = false;
+        blowBtn.textContent = 'Tekrar Dene';
+      });
+    }
+    function listenForBlow() {
+      if (!blowListening) return;
+      analyser.getByteTimeDomainData(dataArray);
+      // Ses seviyesi ölçümü
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        let val = (dataArray[i] - 128) / 128;
+        sum += val * val;
+      }
+      let rms = Math.sqrt(sum / dataArray.length);
+      // Eşik değer: 0.13 (deneysel, üfleme için yeterli)
+      if (rms > 0.13) {
+        blowDetected = true;
+        blowListening = false;
+        blowStatus.textContent = 'Mumlar sönüyor!';
+        stopBlowDetection();
+        setTimeout(() => {
+          candlesLit = false;
+          showBlowPrompt = false;
+          hideBlowUI();
+          startConfetti();
+        }, 1200);
+        return;
+      }
+      // 5 saniye sonra otomatik bitir
+      if (Date.now() - blowStartTime > 5000) {
+        blowListening = false;
+        blowStatus.textContent = 'Üfleme algılanamadı. Tekrar deneyebilirsin.';
+        stopBlowDetection();
+        blowBtn.disabled = false;
+        blowBtn.textContent = 'Tekrar Dene';
+        return;
+      }
+      requestAnimationFrame(listenForBlow);
+    }
+    function stopBlowDetection() {
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+    }
+
+    function animate() {
+      // Night sky background gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#1a237e');
+      grad.addColorStop(1, '#0a1026');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawStars();
+      drawShootingStar();
+      drawCake();
+      drawWishBox();
+      drawConfetti();
+      drawBirthdayText();
+      // Soft glow around cake
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.beginPath();
+      ctx.arc(centerX, baseY - 40, 110, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fffbe6';
+      ctx.shadowColor = '#fffbe6';
+      ctx.shadowBlur = 60;
+      ctx.fill();
+      ctx.restore();
+
+      // Draw prompt and button if candles not lit
+      if (!candlesLit && showButton) {
+        // Prompt text above the cake
+        ctx.save();
+        ctx.font = '22px Arial';
+        ctx.fillStyle = '#fffbe6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Mumları yakmak ister ?', canvas.width/2, 54);
+        ctx.restore();
+        // Button below prompt, above cake
+        btn.y = 84;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 16);
+        ctx.fillStyle = '#3949ab';
+        ctx.shadowColor = '#8ecae6';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#fffbe6';
+        ctx.stroke();
+        ctx.font = 'bold 22px Arial';
+        ctx.fillStyle = '#fffbe6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Mumları Yak', canvas.width/2, btn.y + btn.h/2);
+        ctx.restore();
+      }
+      // Mumlar sönünce blow UI gizle
+      if (!candlesLit && showBlowPrompt) {
+        showBlowPrompt = false;
+        hideBlowUI();
+      }
+
+      // Animate scrolling copyright text below the cake
+      ctx.save();
+      const copyrightText = '© bu pasta ev yapımı pastadır.';
+      ctx.font = '20px Arial';
+      ctx.fillStyle = '#fffbe6';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      const textWidth = ctx.measureText(copyrightText).width;
+      if (typeof animate.scrollX === 'undefined') {
+        animate.scrollX = canvas.width;
+      }
+      animate.scrollX -= 1.2;
+      if (animate.scrollX < -textWidth) {
+        animate.scrollX = canvas.width;
+      }
+      ctx.fillText(copyrightText, animate.scrollX, canvas.height - 36);
+      ctx.restore();
+
+      time += 0.016;
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // Canvas click logic for button
+    const sgagirisVideo = document.getElementById('sgagirisVideo');
+    canvas.addEventListener('click', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      if (!candlesLit && showButton) {
+        if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
+          candleLighting = true;
+          litCandleCount = 0;
+          candleLightTimer = Date.now();
+          showButton = false;
+          shootingStarActive = false;
+          shootingStarTriggered = false;
+          shootingStarTimer = 0;
+          showWishPrompt = false;
+          wishPhase = 0;
+          wishPhaseTimer = 0;
+          wishCountdown = 10;
+          lastWishUpdate = 0;
+          // sgagiris.mp4 başlat ve döngüye al
+          if (sgagirisVideo) {
+            sgagirisVideo.currentTime = 0;
+            sgagirisVideo.play();
+          }
+        }
+      }
+      // sgagiris.mp4 bittiğinde tekrar başlat
+      if (sgagirisVideo && !sgagirisVideo._loopHandlerAdded) {
+        sgagirisVideo.addEventListener('ended', function() {
+          sgagirisVideo.currentTime = 0;
+          sgagirisVideo.play();
+        });
+        sgagirisVideo._loopHandlerAdded = true;
+      }
+      // Wish box Yes/No button click
+      if (wishPhase === 3 && showWishButtons) {
+        if (mx >= wishBoxBtn.yes.x && mx <= wishBoxBtn.yes.x + wishBoxBtn.yes.w && my >= wishBoxBtn.yes.y && my <= wishBoxBtn.yes.y + wishBoxBtn.yes.h) {
+          showWishButtons = false;
+          showWishPrompt = false;
+          showBlowPrompt = true;
+          showBlowUI();
+        }
+        if (mx >= wishBoxBtn.no.x && mx <= wishBoxBtn.no.x + wishBoxBtn.no.w && my >= wishBoxBtn.no.y && my <= wishBoxBtn.no.y + wishBoxBtn.no.h) {
+          showWishButtons = false;
+          showWaitingBox = true;
+        }
+      }
+      // Waiting box Ready button click
+      if (showWaitingBox) {
+        if (mx >= waitingBtn.x && mx <= waitingBtn.x + waitingBtn.w && my >= waitingBtn.y && my <= waitingBtn.y + waitingBtn.h) {
+          showWaitingBox = false;
+          showWishPrompt = false;
+          showBlowPrompt = true;
+          showBlowUI();
+        }
+      }
+    });
+  </script>
+</body>
+</html> 
